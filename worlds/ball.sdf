@@ -1,0 +1,251 @@
+<?xml version="1.0" ?>
+<sdf version="1.8">
+  <world name="ball_world">
+
+    <!-- 物理エンジンの設定 -->
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    
+    <!-- プラグインのロード -->
+    <plugin
+      filename="gz-sim-physics-system"
+      name="gz::sim::systems::Physics">
+    </plugin>
+    <plugin
+      filename="gz-sim-user-commands-system"
+      name="gz::sim::systems::UserCommands">
+    </plugin>
+    <plugin
+      filename="gz-sim-scene-broadcaster-system"
+      name="gz::sim::systems::SceneBroadcaster">
+    </plugin>
+
+    <!-- 環境光 -->
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <!-- 地面 -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>0.8 0.8 0.8 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 傾斜板システム -->
+    <model name="tilting_platform">
+      <!-- 固定支柱 -->
+      <link name="support">
+        <pose>0 0 0.15 0 0 0</pose>
+        <inertial>
+          <mass>10.0</mass>
+          <inertia>
+            <ixx>1.0</ixx>
+            <iyy>1.0</iyy>
+            <izz>1.0</izz>
+          </inertia>
+        </inertial>
+        <collision name="support_collision">
+          <geometry>
+            <box>
+              <size>0.02 0.02 0.3</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="support_visual">
+          <geometry>
+            <box>
+              <size>0.02 0.02 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 0</ambient>
+            <diffuse>0.5 0.5 0.5 0</diffuse>
+          </material>
+        </visual>
+      </link>
+
+      <!-- X軸回転用の中間リンク -->
+      <link name="x_rotation_link">
+        <pose>0 0 0.3 0 0 0</pose>
+        <inertial>
+          <mass>0.1</mass>
+          <inertia>
+            <ixx>0.01</ixx>
+            <iyy>0.01</iyy>
+            <izz>0.01</izz>
+          </inertia>
+        </inertial>
+      </link>
+
+      <!-- 傾斜板 -->
+      <link name="platform">
+        <pose>0 0 0.305 0 0 0</pose>
+        <inertial>
+          <mass>1.0</mass>
+          <inertia>
+            <ixx>0.033</ixx>
+            <iyy>0.033</iyy>
+            <izz>0.066</izz>
+          </inertia>
+        </inertial>
+        <collision name="platform_collision">
+          <geometry>
+            <box>
+              <size>0.2 0.2 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="platform_visual">
+          <geometry>
+            <box>
+              <size>0.2 0.2 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0.5 1 1</ambient>
+            <diffuse>0 0.5 1 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+      </link>
+
+      <!-- 支柱を地面に固定 -->
+      <joint name="support_fixed" type="fixed">
+        <parent>world</parent>
+        <child>support</child>
+        <pose>0 0 0 0 0 0</pose>
+      </joint>
+
+      <!-- X軸回転ジョイント -->
+      <joint name="x_rotation" type="revolute">
+        <parent>support</parent>
+        <child>x_rotation_link</child>
+        <pose>0 0 0 0 0 0</pose>
+        <axis>
+          <xyz>1 0 0</xyz>
+          <limit>
+            <lower>-0.785</lower>
+            <upper>0.785</upper>
+          </limit>
+        </axis>
+      </joint>
+
+      <!-- Y軸回転ジョイント -->
+      <joint name="y_rotation" type="revolute">
+        <parent>x_rotation_link</parent>
+        <child>platform</child>
+        <pose>0 0 0 0 0 0</pose>
+        <axis>
+          <xyz>0 1 0</xyz>
+          <limit>
+            <lower>-0.785</lower>
+            <upper>0.785</upper>
+          </limit>
+        </axis>
+      </joint>
+
+      <!-- X軸ジョイント位置制御プラグイン -->
+      <plugin filename="gz-sim-joint-position-controller-system"
+              name="gz::sim::systems::JointPositionController">
+        <joint_name>x_rotation</joint_name>
+        <topic>/joint_commands</topic>
+        <p_gain>10</p_gain>
+        <i_gain>0.1</i_gain>
+        <d_gain>1</d_gain>
+      </plugin>
+
+      <!-- Y軸ジョイント位置制御プラグイン -->
+      <plugin filename="gz-sim-joint-position-controller-system"
+              name="gz::sim::systems::JointPositionController">
+        <joint_name>y_rotation</joint_name>
+        <topic>/joint_commands_y</topic>
+        <p_gain>10</p_gain>
+        <i_gain>0.1</i_gain>
+        <d_gain>1</d_gain>
+      </plugin>
+      
+      <!-- ジョイント状態パブリッシャープラグイン -->
+      <plugin filename="gz-sim-joint-state-publisher-system"
+              name="gz::sim::systems::JointStatePublisher">
+      </plugin>
+
+    </model>
+
+    <!-- ボール -->
+    <model name="ball">
+      <pose>0 0 0.32 0 0 0</pose>
+      <link name="ball_link">
+        <inertial>
+          <mass>0.01</mass>
+          <inertia>
+            <ixx>0.000016</ixx>
+            <iyy>0.000016</iyy>
+            <izz>0.000016</izz>
+          </inertia>
+        </inertial>
+        <collision name="ball_collision">
+          <geometry>
+            <sphere>
+              <radius>0.01</radius>
+            </sphere>
+          </geometry>
+        </collision>
+        <visual name="ball_visual">
+          <geometry>
+            <sphere>
+              <radius>0.01</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>1 0 0 1</ambient>
+            <diffuse>1 0 0 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+      </link>
+
+      <plugin name="gz::sim::systems::PosePublisher" filename="gz-sim-pose-publisher-system">
+        <publish_model_pose>true</publish_model_pose>
+        <publish_link_pose>false</publish_link_pose>
+        <use_pose_vector_msg>false</use_pose_vector_msg>
+        <publish_nested_model_pose>true</publish_nested_model_pose>
+        <update_frequency>60</update_frequency>
+      </plugin>
+    </model>
+
+  </world>
+</sdf> 
